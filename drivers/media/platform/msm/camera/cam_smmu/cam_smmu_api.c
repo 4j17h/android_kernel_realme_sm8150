@@ -1814,8 +1814,6 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		idx, buf, (void *)iommu_cb_set.cb_info[idx].dev,
 		(void *)*paddr_ptr, (unsigned int)*len_ptr);
 
-	return 0;
-
 err_alloc:
 	if (region_id == CAM_SMMU_REGION_SHARED) {
 		cam_smmu_free_iova(iova,
@@ -1831,7 +1829,8 @@ err_unmap_sg:
 err_detach:
 	dma_buf_detach(buf, attach);
 err_put:
-	dma_buf_put(buf);
+	if (rc)
+		dma_buf_put(buf);
 err_out:
 	return rc;
 }

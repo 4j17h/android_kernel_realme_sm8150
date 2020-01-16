@@ -1968,7 +1968,12 @@ static int _sde_encoder_update_rsc_client(
 	    (rsc_config->prefill_lines != prefill_lines) ||
 	    (rsc_config->jitter_numer != mode_info.jitter_numer) ||
 	    (rsc_config->jitter_denom != mode_info.jitter_denom)) {
+		#ifdef VENDOR_EDIT
+		/* LiPing-M@PSW.MM.Display.LCD.Feature,2019-09-03, Add for 90hz */
+		rsc_config->fps = 90;
+		#else
 		rsc_config->fps = mode_info.frame_rate;
+		#endif /* VENDOR_EDIT */
 		rsc_config->vtotal = mode_info.vtotal;
 		rsc_config->prefill_lines = prefill_lines;
 		rsc_config->jitter_numer = mode_info.jitter_numer;
@@ -2254,6 +2259,7 @@ static void sde_encoder_input_event_handler(struct input_handle *handle,
 
 	priv = drm_enc->dev->dev_private;
 	sde_enc = to_sde_encoder_virt(drm_enc);
+#ifndef VENDOR_EDIT
 	if (!sde_enc->crtc || (sde_enc->crtc->index
 			>= ARRAY_SIZE(priv->disp_thread))) {
 		SDE_DEBUG_ENC(sde_enc,
@@ -2266,6 +2272,27 @@ static void sde_encoder_input_event_handler(struct input_handle *handle,
 	SDE_EVT32_VERBOSE(DRMID(drm_enc));
 
 	disp_thread = &priv->disp_thread[sde_enc->crtc->index];
+#else /* VENDOR_EDIT */
+/* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-11-21
+ * fix sde_enc->crtc race
+ */
+	/* sde_enc may released in somewhere */
+	{
+		struct drm_crtc *crtc = sde_enc->crtc;
+
+		if (!crtc || (crtc->index >= ARRAY_SIZE(priv->disp_thread))) {
+			SDE_DEBUG_ENC(sde_enc,
+					"invalid cached CRTC: %d or crtc index: %d\n",
+					crtc == NULL,
+					crtc ? crtc->index : -EINVAL);
+			return;
+		}
+
+		SDE_EVT32_VERBOSE(DRMID(drm_enc));
+
+		disp_thread = &priv->disp_thread[crtc->index];
+	}
+#endif /* VENDOR_EDIT */
 
 	kthread_queue_work(&disp_thread->worker,
 				&sde_enc->input_event_work);
@@ -2666,6 +2693,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		mutex_unlock(&sde_enc->rc_lock);
 		break;
 	case SDE_ENC_RC_EVENT_EARLY_WAKEUP:
+#ifndef VENDOR_EDIT
 		if (!sde_enc->crtc ||
 			sde_enc->crtc->index >= ARRAY_SIZE(priv->disp_thread)) {
 			SDE_DEBUG_ENC(sde_enc,
@@ -2677,6 +2705,25 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		}
 
 		disp_thread = &priv->disp_thread[sde_enc->crtc->index];
+#else
+/* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-11-21
+ * fix sde_enc->crtc race
+*/
+		{
+			struct drm_crtc *crtc = sde_enc->crtc;
+
+			if (!crtc || crtc->index >= ARRAY_SIZE(priv->disp_thread)) {
+				SDE_DEBUG_ENC(sde_enc,
+						"invalid crtc:%d or crtc index:%d , sw_event:%u\n",
+						crtc == NULL,
+						crtc ? crtc->index : -EINVAL,
+						sw_event);
+				return -EINVAL;
+			}
+
+			disp_thread = &priv->disp_thread[crtc->index];
+		}
+#endif /* VENDOR_EDIT */
 
 		mutex_lock(&sde_enc->rc_lock);
 
@@ -2755,6 +2802,11 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	struct sde_kms *sde_kms;
 	struct list_head *connector_list;
 	struct drm_connector *conn = NULL, *conn_iter;
+#ifndef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-07-26 fixup race on commit thread bugID:2184674*/
+	struct sde_connector_state *sde_conn_state = NULL;
+	struct sde_connector *sde_conn = NULL;
+#endif
 	struct sde_rm_hw_iter dsc_iter, pp_iter, qdss_iter;
 	struct sde_rm_hw_request request_hw;
 	bool is_cmd_mode = false;
@@ -2802,7 +2854,6 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		SDE_ERROR_ENC(sde_enc, "invalid connector state\n");
 		return;
 	}
-
 	/* release resources before seamless mode change */
 	if (msm_is_mode_seamless_dms(adj_mode) ||
 			(msm_is_mode_seamless_dyn_clk(adj_mode) &&
@@ -3270,6 +3321,12 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+#ifndef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-11-21
+ * Add for solve backlight and esd check crash issue
+*/
+	struct drm_connector *drm_conn = NULL;
+#endif
 	enum sde_intf_mode intf_mode;
 	int i = 0;
 
@@ -3298,6 +3355,14 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	SDE_EVT32(DRMID(drm_enc));
 
+#ifndef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-11-21
+ * Add for solve backlight and esd check crash issue
+*/
+	/* Disable ESD thread */
+	drm_conn = sde_enc->cur_master->connector;
+	sde_connector_schedule_status_work(drm_conn, false);
+#endif
 	/* wait for idle */
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
 
@@ -4150,6 +4215,50 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
 	sde_enc->idle_pc_restore = false;
 }
 
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Feature,2018-11-21
+ * Force enable dither on OnScreenFingerprint scene
+*/
+extern int oppo_dimlayer_dither_threshold;
+extern int oppo_dimlayer_dither_bitdepth;
+extern int oppo_get_panel_brightness_to_alpha(void);
+extern bool sde_crtc_get_dimlayer_mode(struct drm_crtc_state *crtc_state);
+static bool
+_sde_encoder_setup_dither_for_onscreenfingerprint(struct sde_encoder_phys *phys,
+						  void *dither_cfg, int len, struct sde_hw_pingpong *hw_pp)
+{
+	struct drm_encoder *drm_enc = phys->parent;
+	struct drm_msm_dither dither;
+
+	if (!drm_enc || !drm_enc->crtc)
+		return -EFAULT;
+
+	if (!sde_crtc_get_dimlayer_mode(drm_enc->crtc->state))
+		return -EINVAL;
+
+	if (len != sizeof(dither))
+		return -EINVAL;
+
+	if (oppo_get_panel_brightness_to_alpha() < oppo_dimlayer_dither_threshold)
+		return -EINVAL;
+
+	if(hw_pp == 0){
+		return 0;
+	}
+
+	memcpy(&dither, dither_cfg, len);
+	dither.c0_bitdepth = 6;
+	dither.c1_bitdepth = 6;
+	dither.c2_bitdepth = 6;
+	dither.c3_bitdepth = 6;
+	dither.temporal_en = 1;
+
+	phys->hw_pp->ops.setup_dither(hw_pp, &dither, len);
+
+	return 0;
+}
+#endif /* VENDOR_EDIT */
+
 static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 {
 	void *dither_cfg;
@@ -4195,11 +4304,21 @@ static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
 			hw_pp = sde_enc->hw_pp[i];
 			if (hw_pp) {
+				#ifndef VENDOR_EDIT
+				/* LiPing-M@PSW.MM.Display.LCD.Feature,2019-07-09 Force enable dither on OnScreenFingerprint scene */
+				if (_sde_encoder_setup_dither_for_onscreenfingerprint(phys, dither_cfg, len ,hw_pp))
+				#endif /* VENDOR_EDIT */
 				phys->hw_pp->ops.setup_dither(hw_pp, dither_cfg,
 								len);
 			}
 		}
 	} else {
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Feature,2018-11-19
+ * Force enable dither on OnScreenFingerprint scene
+*/
+		if (_sde_encoder_setup_dither_for_onscreenfingerprint(phys, dither_cfg, len,phys->hw_pp))
+#endif /* VENDOR_EDIT */
 		phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
 	}
 }
@@ -4544,6 +4663,11 @@ static void _helper_flush_dsc(struct sde_encoder_virt *sde_enc)
 	}
 }
 
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-03-26 add for dc backlight */
+extern int sde_connector_update_backlight(struct drm_connector *conn);
+extern int sde_connector_update_hbm(struct drm_connector *connector);
+#endif /* VENDOR_EDIT */
 int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -4660,6 +4784,14 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 end:
 	SDE_ATRACE_END("sde_encoder_prepare_for_kickoff");
+
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-03-26 add for dc backlight */
+	if (sde_enc->cur_master) {
+		sde_connector_update_backlight(sde_enc->cur_master->connector);
+		sde_connector_update_hbm(sde_enc->cur_master->connector);
+	}
+#endif /* VENDOR_EDIT */
 	return ret;
 }
 

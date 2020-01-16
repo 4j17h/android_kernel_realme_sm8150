@@ -1,0 +1,3 @@
+ccflags-y = -DCONFIG_OPPO_FINGERPRINT_PLATFORM=855 -DCONFIG_OPTICAL_GF_IRQ_HANDLER
+
+obj-y     +=  oppo_fp_common.o

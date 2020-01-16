@@ -244,6 +244,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 	fifo_0_start = DWC3_GTXFIFOSIZ_TXFSTADDR(tmp);
 
 	fifo_size |= (fifo_0_start + (dwc->last_fifo_depth << 16));
+
 	if (dwc3_is_usb31(dwc))
 		dwc->last_fifo_depth += DWC31_GTXFIFOSIZ_TXFDEF(fifo_size);
 	else
@@ -365,6 +366,7 @@ int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param)
 	return ret;
 }
 
+
 /**
  * dwc3_send_gadget_ep_cmd - issue an endpoint command
  * @dep: the endpoint to which the command is going to be issued
@@ -402,6 +404,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 			dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
 		}
 	}
+
 
 	dwc3_writel(dep->regs, DWC3_DEPCMDPAR0, params->param0);
 	dwc3_writel(dep->regs, DWC3_DEPCMDPAR1, params->param1);
@@ -1864,6 +1867,7 @@ static int dwc3_gadget_get_frame(struct usb_gadget *g)
 	return __dwc3_gadget_get_frame(dwc);
 }
 
+
 #define DWC3_PM_RESUME_RETRIES		20    /* Max Number of retries */
 #define DWC3_PM_RESUME_DELAY		100   /* 100 msec */
 
@@ -2073,11 +2077,19 @@ static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 	return 0;
 }
 
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-08-07  for detect CDP */
+#define DWC3_SOFT_RESET_TIMEOUT		10 /* 10 msec */
+#endif
+
 static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 {
 	u32			reg, reg1;
 	u32			timeout = 1500;
-
+#ifdef VENDOR_EDIT
+	/* Yichun.Chen	PSW.BSP.CHG  2019-08-07  for detect CDP */
+	ktime_t start, diff;
+#endif
 	dbg_event(0xFF, "run_stop", is_on);
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	if (is_on) {
@@ -2088,7 +2100,26 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 		if (dwc->revision >= DWC3_REVISION_194A)
 			reg &= ~DWC3_DCTL_KEEP_CONNECT;
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-08-07  for detect CDP */
+		start = ktime_get();
+		/* issue device SoftReset */
+		dwc3_writel(dwc->regs, DWC3_DCTL, reg | DWC3_DCTL_CSFTRST);
+		do {
+			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+			if (!(reg & DWC3_DCTL_CSFTRST))
+				break;
 
+			diff = ktime_sub(ktime_get(), start);
+			/* poll for max. 10ms */
+			if (ktime_to_ms(diff) > DWC3_SOFT_RESET_TIMEOUT) {
+				printk_ratelimited(KERN_ERR
+					"%s:core Reset Timed Out\n", __func__);
+				break;
+			}
+			cpu_relax();
+		} while (true);
+#endif
 		dwc3_event_buffers_setup(dwc);
 		__dwc3_gadget_start(dwc);
 
@@ -2129,11 +2160,37 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * device controller.
 		 */
 		dwc3_stop_active_transfers(dwc);
-
+#ifdef VENDOR_EDIT /* yanghao@PSW.BSP.Stability,add 2019/03/23 for etv->buf out of size access case03938888 */
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
 		if (dwc->has_hibernation && !suspend)
 			reg &= ~DWC3_DCTL_KEEP_CONNECT;
+		}
+
+	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+
+	/* Controller is not halted until the events are acknowledged */
+	if (!is_on) {
+#endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT//Fanhong.Kong@PSW.BSP.CHG,add 2019/03/17  for usb device smmu case03921250
+		/*
+		 * Clear out any pending events (i.e. End Transfer Command
+		 * Complete) before clearing run/stop
+		 */
+		reg1 = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
+		reg1 &= DWC3_GEVNTCOUNT_MASK;
+		dbg_log_string("remaining EVNTCOUNT(0)=%d", reg1);
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), reg1);
+		dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
+#endif/*VENDOR_EDIT*/
+
+#ifndef VENDOR_EDIT /* yanghao@PSW.BSP.Stability,add 2019/03/23 for etv->buf out of size access case03938888 */
+		reg &= ~DWC3_DCTL_RUN_STOP;
+
+		if (dwc->has_hibernation && !suspend)
+			reg &= ~DWC3_DCTL_KEEP_CONNECT;
+#endif
 	}
 
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
@@ -3783,7 +3840,12 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 
 static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 {
+#ifdef VENDOR_EDIT
+	/* tongfeng.Huang@BSP.CHG.Basic, 2019/05/16,  case 04013764 */
 	struct dwc3 *dwc;
+#else
+	struct dwc3 *dwc = evt->dwc;
+#endif
 	u32 amount;
 	u32 count;
 	u32 reg;

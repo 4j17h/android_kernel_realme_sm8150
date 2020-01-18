@@ -723,11 +723,21 @@ static const struct adc_channels adc_chans_pmic5[ADC_MAX_CHANNEL] = {
 	[ADC_AMUX_THM1_PU2]	= ADC_CHAN_TEMP("amux_thm1_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC_AMUX_THM2_PU2]	= ADC_CHAN_TEMP("amux_thm2_pu2", 1,
-					SCALE_HW_CALIB_THERM_100K_PULLUP)
+					SCALE_HW_CALIB_THERM_100K_PULLUP)			
+#ifdef   VENDOR_EDIT /* tongfeng.huang@BSP.CHG.Basic, 2019/01/16,  for pm8150b gpio1 adc  */
+	[ADC_AMUX_THM3_PU2] = ADC_CHAN_VOLT("amux_thm3_pu2", 1,
+					SCALE_HW_CALIB_DEFAULT)
+#else					
 	[ADC_AMUX_THM3_PU2]	= ADC_CHAN_TEMP("amux_thm3_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
-	[ADC_AMUX_THM4_PU2]	= ADC_CHAN_TEMP("amux_thm4_pu2", 1,
-					SCALE_HW_CALIB_THERM_100K_PULLUP)
+#endif
+#ifdef   VENDOR_EDIT /* tongfeng.huang@BSP.CHG.Basic, 2019/01/16,  for pm8150b gpio1 adc  */
+	[ADC_AMUX_THM4_PU2] = ADC_CHAN_VOLT("amux_thm4_pu2", 1,
+					SCALE_HW_CALIB_DEFAULT)
+#else
+    [ADC_AMUX_THM4_PU2] = ADC_CHAN_TEMP("amux_thm4_pu2", 1,
+                    SCALE_HW_CALIB_THERM_100K_PULLUP)
+#endif
 	[ADC_INT_EXT_ISENSE_VBAT_VDATA]	= ADC_CHAN_POWER("int_ext_isense", 1,
 					SCALE_HW_CALIB_CUR)
 	[ADC_EXT_ISENSE_VBAT_VDATA]	= ADC_CHAN_POWER("ext_isense", 1,
@@ -740,8 +750,13 @@ static const struct adc_channels adc_chans_pmic5[ADC_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_PM5_SMB_TEMP)
 	[ADC_GPIO1_PU2]	= ADC_CHAN_TEMP("gpio1_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
+#ifdef   VENDOR_EDIT /* lizhijie@BSP.CHG.Basic, 2019/07/12*/
+	[ADC_GPIO2_PU2]	= ADC_CHAN_VOLT("gpio2_pu2", 1,
+					SCALE_HW_CALIB_DEFAULT)
+#else
 	[ADC_GPIO2_PU2]	= ADC_CHAN_TEMP("gpio2_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
+#endif
 	[ADC_GPIO3_PU2]	= ADC_CHAN_TEMP("gpio3_pu2", 1,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC_GPIO4_PU2]	= ADC_CHAN_TEMP("gpio4_pu2", 1,

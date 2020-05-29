@@ -52,7 +52,7 @@
 			power-source = <1>;
 		};
 	};
-	/*endif*/
+/*endif*/
 
 	usb2_vbus_boost {
 		usb2_vbus_boost_default: usb2_vbus_boost_default {
@@ -164,6 +164,11 @@
 	};
 };
 
+&pm8150b_fg {
+	nvmem-names = "fg_sdam";
+	nvmem = <&pm8150_sdam_2>;
+};
+
 &pm8150b_qnovo {
 	pinctrl-names = "q_state1", "q_state2";
 	pinctrl-0 = <&qnovo_fet_ctrl_state1>;
@@ -201,27 +206,6 @@
 			power-source = <0>;
 		};
 	};
-
-	/*ifdef VENDOR_EDIT*/
-	/*add by hongbo.dai@Camera, 20181105 for front camera*/
-	cam_front_vana {
-		cam_front_vana_default: cam_front_vana_default {
-			pins = "gpio12";
-			function = "normal";
-			power-source = <0>;
-			output-low;
-		};
-	};
-	cam_front_vdig {
-		cam_front_vdig_default: cam_front_vdig_default {
-			pins = "gpio10";
-			function = "normal";
-			power-source = <0>;
-			output-low;
-		};
-	};
-	/*#endif*/
-
 	/*ifdef VENDOR_EDIT*/
 	//Added by Tong.han@Bsp.Group.Tp for device-info,2015-4-13
 	hw_sub1_gpio_active {

@@ -758,7 +758,7 @@
 		eeprom-src = <&eeprom_rear_aux>;
 		cam_vio-supply = <&pm8150l_l1>;
 		cam_vana-supply = <&L4P>;
-		cam_vdig-supply = <&L1P>;
+		cam_vdig-supply = <&L1P>;	
 		cam_clk-supply = <&titan_top_gdsc>;
 		cam_bob-supply = <&pm8150l_bob>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
@@ -886,7 +886,7 @@
 		clock-cntl-level = "turbo";
 		clock-rates = <19200000>;
 	};
-
+	
 	/*#endif*/
 
 	/* #ifndef VENDOR_EDIT */
@@ -939,7 +939,7 @@
 	};
 	*/
 	/* #else */
-
+	
 	qcom,cam-sensor@3 {
 		cell-index = <3>;
 		compatible = "qcom,cam-sensor";

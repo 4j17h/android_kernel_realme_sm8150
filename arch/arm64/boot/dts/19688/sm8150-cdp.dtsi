@@ -41,9 +41,7 @@
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
 		vbus-gpio = <&pm8150_gpios 10 GPIO_ACTIVE_HIGH>;
-		//#ifdef VENDOR_EDIT	/*daihongbo*/
-		//id-gpio = <&tlmm 101 GPIO_ACTIVE_HIGH>;
-		//#endif /*VENDOR_EDIT*/
+		id-gpio = <&tlmm 101 GPIO_ACTIVE_HIGH>;
 		vbus-out-gpio = <&pm8150_gpios 9 GPIO_ACTIVE_HIGH>;
 
 		pinctrl-names = "default";
@@ -307,6 +305,10 @@
 
 &qupv3_se9_i2c {
 	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
@@ -330,10 +332,7 @@
 	compatible = "qcom,ufs-phy-qmp-v4";
 
 	vdda-phy-supply = <&pm8150_l5>;
-//#ifdef VENDOR_EDIT
-//yh@BSP.Storage.UFS, 2019-02-25 add for work around ufs TX DIF_N signal glitch during phy power on
 	vdda-phy-always-on;
-//#endif
 	vdda-pll-supply = <&pm8150l_l3>;
 	vdda-phy-max-microamp = <90200>;
 	vdda-pll-max-microamp = <19000>;
@@ -687,15 +686,12 @@
 		};
 	};
 };
-/*#ifdef VENDOR_EDIT*/
-/*modify by hongbo.dai@camera 20181112, for laser*/
-/*
+
 &usb1 {
 	extcon = <&extcon_usb1>;
 	status = "ok";
 };
-*/
-/*#endif*/
+
 &usb2_phy1 {
 	status = "ok";
 };

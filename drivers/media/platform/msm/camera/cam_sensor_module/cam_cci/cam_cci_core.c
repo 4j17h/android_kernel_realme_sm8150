@@ -1830,6 +1830,8 @@ static int32_t cam_cci_write_packet(
     uint16_t count)
 {
     int32_t rc = 0;
+    uint32_t i = 0;
+
     memset(write_regarray,0,sizeof(write_regarray));
     if (!cci_ctrl || !data)
         return rc;
@@ -1838,7 +1840,7 @@ static int32_t cam_cci_write_packet(
             count);
         count = MAX_WRITE_ARRAY_SIZE;
     }
-    for(int i=0;i<count;i++){
+    for(i=0;i<count;i++){
         write_regarray[i].reg_addr = addr+i;
         write_regarray[i].reg_data = data[i];
         //CAM_ERR(CAM_SENSOR, "cam_cci_write_packet addr = 0x%x,data= 0x%x,count=%d",
@@ -1870,6 +1872,13 @@ int32_t cam_cci_control_interface(void* control)
     int32_t rc = 0,exp_byte;
     struct v4l2_subdev * sd = cam_cci_get_subdev(CCI_DEVICE_1);
     struct camera_cci_transfer* pControl = (struct camera_cci_transfer*)control;
+    uint32_t i = 0;
+
+    struct cci_device *cci_dev = v4l2_get_subdevdata(sd);
+    if (!cci_dev) {
+        CAM_ERR(CAM_CCI, "cci_dev is NULL");
+        return -EINVAL;
+    }
 
     switch (pControl->cmd) {
     case CAMERA_CCI_INIT:
@@ -1880,12 +1889,16 @@ int32_t cam_cci_control_interface(void* control)
         cci_ctrl_interface.cci_info->i2c_freq_mode = I2C_FAST_MODE;
         cci_ctrl_interface.cci_info->sid = (0x52 >> 1);
         cci_ctrl_interface.cci_info->retries = 3;
+        mutex_lock(&cci_dev->init_mutex);
         rc = cam_cci_init(sd, &cci_ctrl_interface);
-        CAM_ERR(CAM_CCI, "cci init cmd,rc=%d",rc);
+        mutex_unlock(&cci_dev->init_mutex);
+        CAM_DBG(CAM_CCI, "cci init cmd,rc=%d",rc);
         break;
     case CAMERA_CCI_RELEASE:
+        mutex_lock(&cci_dev->init_mutex);
         rc = cam_cci_release(sd);
-        CAM_ERR(CAM_CCI, "cci release cmd,rc=%d",rc);
+        mutex_unlock(&cci_dev->init_mutex);
+        CAM_DBG(CAM_CCI, "cci release cmd,rc=%d",rc);
         break;
     case CAMERA_CCI_READ:
         cci_ctrl_interface.cmd = MSM_CCI_I2C_READ;
@@ -1899,7 +1912,7 @@ int32_t cam_cci_control_interface(void* control)
             CAM_ERR(CAM_CCI, "cmd %d,rc=%d", pControl->cmd,rc);
             exp_byte = ((cci_ctrl_interface.cfg.cci_i2c_read_cfg.num_byte / 4) + 1);
             CAM_ERR(CAM_CCI, "read exp byte=%d", exp_byte);
-            for(int i=0;i<exp_byte;i++){
+            for(i=0;i<exp_byte;i++){
                 CAM_ERR(CAM_CCI, "read byte=0x%x,index=%d",
                     cci_ctrl_interface.cfg.cci_i2c_read_cfg.data[i],i);
             }

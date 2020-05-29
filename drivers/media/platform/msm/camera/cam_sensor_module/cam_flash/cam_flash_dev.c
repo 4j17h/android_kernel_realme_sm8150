@@ -255,15 +255,8 @@ static ssize_t flash_on_off(struct cam_flash_ctrl *flash_ctrl)
 			flash_ctrl->flash_state = CAM_FLASH_STATE_INIT;
 			break;
 		case 1:
-			if (strcmp(vendor_flash_ctrl->flash_name,"pmic_19111") == 0) {
-                		CAM_ERR(CAM_FLASH, "====getin 19111 !====");
-                		flash_data.led_current_ma[0] = 70;
-                		flash_data.led_current_ma[1] = 70;
-            		} else {
-                		CAM_ERR(CAM_FLASH, "====getin 19031 !====");
-                		flash_data.led_current_ma[0] = 55;
-                		flash_data.led_current_ma[1] = 55;
-            		}
+			flash_data.led_current_ma[0] = 55;
+			flash_data.led_current_ma[1] = 55;
 			cam_flash_on(flash_ctrl, &flash_data, 0);
 			break;
 		case 2:
@@ -322,8 +315,7 @@ static int flash_proc_init(struct cam_flash_ctrl *flash_ctl)
 		pr_err("%s get flash name is NULL %d\n", __func__, __LINE__);
 		return -1;
 	} else {
-		if ((strcmp(flash_ctl->flash_name, "pmic_19111") != 0)
-            		&&(strcmp(flash_ctl->flash_name, "pmic") != 0)) {
+		if (strcmp(flash_ctl->flash_name, "pmic") != 0) {
 			pr_err("%s get flash name is PMIC ,so return\n", __func__);
 			return -1;
 		}

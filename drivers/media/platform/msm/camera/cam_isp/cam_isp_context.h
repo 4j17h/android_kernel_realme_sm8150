@@ -153,6 +153,8 @@ struct cam_isp_context_state_monitor {
  * @hw_ctx:                    HW object returned by the acquire device command
  * @sof_timestamp_val:         Captured time stamp value at sof hw event
  * @boot_timestamp:            Boot time stamp for a given req_id
+ * @prev_sof_timestamp_val     Holds last notified sof time stamp
+ * @prev_boot_timestamp        Holds last notified boot time stamp
  * @active_req_cnt:            Counter for the active request
  * @reported_req_id:           Last reported request id
  * @subscribe_event:           The irq event mask that CRM subscribes to, IFE
@@ -182,6 +184,12 @@ struct cam_isp_context {
 	void                            *hw_ctx;
 	uint64_t                         sof_timestamp_val;
 	uint64_t                         boot_timestamp;
+#ifdef VENDOR_EDIT
+/* dengxin@camera, 20190927, add for ITS test, case:04217936 */
+	uint64_t                         prev_sof_timestamp_val;
+	uint64_t                         prev_boot_timestamp;
+#endif
+
 	int32_t                          active_req_cnt;
 	int64_t                          reported_req_id;
 	uint32_t                         subscribe_event;

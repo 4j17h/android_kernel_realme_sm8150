@@ -4338,6 +4338,8 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_hw_intf                   *hw_intf;
 	struct cam_csid_get_time_stamp_args   csid_get_time;
 
+#ifndef VENDOR_EDIT
+/* dengxin@camera, 20190927, add for ITS test, case:04217936 */
 	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 			if (!hw_mgr_res->hw_res[i])
@@ -4376,6 +4378,45 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 			}
 		}
 	}
+#else
+	hw_mgr_res = list_first_entry(&ife_ctx->res_list_ife_csid,
+		struct cam_ife_hw_mgr_res, list);
+	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+		if (!hw_mgr_res->hw_res[i])
+			continue;
+
+		/*
+		 * Get the SOF time stamp from left resource only.
+		 * Left resource is master for dual vfe case and
+		 * Rdi only context case left resource only hold
+		 * the RDI resource
+		 */
+
+		hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+		if (hw_intf->hw_ops.process_cmd) {
+			/*
+			 * Single VFE case, Get the time stamp from
+			 * available one csid hw in the context
+			 * Dual VFE case, get the time stamp from
+			 * master(left) would be sufficient
+			 */
+			csid_get_time.node_res =
+				hw_mgr_res->hw_res[i];
+			rc = hw_intf->hw_ops.process_cmd(
+				hw_intf->hw_priv,
+				CAM_IFE_CSID_CMD_GET_TIME_STAMP,
+				&csid_get_time,
+				sizeof(
+				struct cam_csid_get_time_stamp_args));
+			if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
+				*time_stamp =
+					csid_get_time.time_stamp_val;
+				*boot_time_stamp =
+					csid_get_time.boot_timestamp;
+			}
+		}
+	}
+#endif
 
 	if (rc)
 		CAM_ERR(CAM_ISP, "Getting sof time stamp failed");
@@ -4646,9 +4687,13 @@ static int cam_ife_hw_mgr_get_err_type(
 
 	core_idx = evt_payload->core_index;
 	evt_payload->evt_id = CAM_ISP_HW_EVENT_ERROR;
-	evt_payload->enable_reg_dump =
-		g_ife_hw_mgr.debug_cfg.enable_reg_dump;
-
+#ifdef VENDOR_EDIT
+/*Zhixian.mai Cam.Drv 20190927 modify for debug supernight issuse  */
+//       evt_payload->enable_reg_dump =
+//              g_ife_hw_mgr.debug_cfg.enable_reg_dump;
+	evt_payload->enable_reg_dump = true;
+//		g_ife_hw_mgr.debug_cfg.enable_reg_dump;
+#endif
 	list_for_each_entry(isp_ife_camif_res,
 		&ife_hwr_mgr_ctx->res_list_ife_src, list) {
 

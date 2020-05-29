@@ -18,6 +18,7 @@
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_cx_ipeak.h"
+#include <soc/oppo/oppo_project.h>
 
 static char supported_clk_info[256];
 static char debugfs_dir_name[64];
@@ -1126,19 +1127,40 @@ static int cam_soc_util_get_dt_regulator_info
 
 	soc_info->rgltr_ctrl_support = true;
 
-	rc = of_property_read_u32_array(of_node, "rgltr-min-voltage",
-		soc_info->rgltr_min_volt, soc_info->num_rgltr);
-	if (rc) {
-		CAM_ERR(CAM_UTIL, "No minimum volatage value found, rc=%d", rc);
-		return -EINVAL;
-	}
+    /*WangChao@Cam.Drv 2020.1.16 add for fixing the issue of different sensor using same devicetree*/
+    if (19696 == get_project() && (31 == get_Operator_Version()||33 == get_Operator_Version())) {
+        /*WangChao@Cam.Drv 2020.1.16 Add for test*/
+        CAM_ERR(CAM_UTIL, "get_Operator_Version= %d", get_Operator_Version());
+        rc = of_property_read_u32_array(of_node, "rgltr-min-voltage-19710",
+            soc_info->rgltr_min_volt, soc_info->num_rgltr);
+        if (rc) {
+            CAM_ERR(CAM_UTIL, "No minimum volatage value found, rc=%d", rc);
+            return -EINVAL;
+        }
 
-	rc = of_property_read_u32_array(of_node, "rgltr-max-voltage",
-		soc_info->rgltr_max_volt, soc_info->num_rgltr);
-	if (rc) {
-		CAM_ERR(CAM_UTIL, "No maximum volatage value found, rc=%d", rc);
-		return -EINVAL;
-	}
+        rc = of_property_read_u32_array(of_node, "rgltr-max-voltage-19710",
+            soc_info->rgltr_max_volt, soc_info->num_rgltr);
+        if (rc) {
+            CAM_ERR(CAM_UTIL, "No maximum volatage value found, rc=%d", rc);
+            return -EINVAL;
+        }
+    }
+
+    else{
+        rc = of_property_read_u32_array(of_node, "rgltr-min-voltage",
+            soc_info->rgltr_min_volt, soc_info->num_rgltr);
+        if (rc) {
+            CAM_ERR(CAM_UTIL, "No minimum volatage value found, rc=%d", rc);
+            return -EINVAL;
+        }
+
+        rc = of_property_read_u32_array(of_node, "rgltr-max-voltage",
+            soc_info->rgltr_max_volt, soc_info->num_rgltr);
+        if (rc) {
+            CAM_ERR(CAM_UTIL, "No maximum volatage value found, rc=%d", rc);
+            return -EINVAL;
+        }
+        }
 
 	rc = of_property_read_u32_array(of_node, "rgltr-load-current",
 		soc_info->rgltr_op_mode, soc_info->num_rgltr);

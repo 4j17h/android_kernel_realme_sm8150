@@ -12,6 +12,10 @@
 
 #include <linux/module.h>
 #include <cam_sensor_cmn_header.h>
+#if VENDOR_EDIT
+/*add by hongbo.dai@camera 20190505, for OIS firmware update*/
+#include <linux/firmware.h>
+#endif
 #include "cam_sensor_core.h"
 #include "cam_sensor_util.h"
 #include "cam_soc_util.h"
@@ -39,6 +43,8 @@
 #define S5KGW1_VERSION_REG (0x0002)  //s5kgw1 version register address(0x0002)
 #define SAMSUNG_SENSOR_MP1 (0xA101)  //s5kgw1 evt0.1(0xA101)
 #define SAMSUNG_SENSOR_MP2 (0xA201)  //s5kgw1 evt0.2(0xA201)
+
+#define MAX_LENGTH 128
 
 struct sony_dfct_tbl_t imx471_dfct_tbl;
 
@@ -845,7 +851,6 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 			   slave_info->sensor_id_reg_addr,
 			   &chipid, CAMERA_SENSOR_I2C_TYPE_WORD,
 			   CAMERA_SENSOR_I2C_TYPE_WORD);
-
 	}
 
 	/* chen.li@RM.Cam, 20190806, add for get sensor version */
@@ -986,7 +991,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		#ifdef VENDOR_EDIT
-                /*add by chen.li@camera, 2019/09/04 for get sensor version*/
+        /*add by chen.li@camera, 2019/09/04 for get sensor version*/
 		cmd->reserved = s_ctrl->sensordata->slave_info.sensor_version;
 		#endif
 
@@ -1393,75 +1398,6 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
-/*add by Fangyan@camera 20190831, for fix current leak issue*/
-#ifdef VENDOR_EDIT
-static int RamWriteByte(struct cam_sensor_ctrl_t *o_ctrl,
-	uint32_t addr, uint32_t data, unsigned short mdelay)
-{
-	int32_t rc = 0;
-	int retry = 1;
-	struct cam_sensor_i2c_reg_array i2c_write_setting = {
-		.reg_addr = addr,
-		.reg_data = data,
-		.delay = mdelay,
-		.data_mask = 0x00,
-	};
-	struct cam_sensor_i2c_reg_setting i2c_write = {
-		.reg_setting = &i2c_write_setting,
-		.size = 1,
-		.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD,
-		.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE,
-		.delay = mdelay,
-	};
-	if (o_ctrl == NULL) {
-		CAM_ERR(CAM_OIS, "Invalid Args");
-		return -EINVAL;
-	}
-
-	for(int i = 0; i < retry; i++)
-	{
-		rc = camera_io_dev_write(&(o_ctrl->io_master_info), &i2c_write);
-		if (rc < 0) {
-			CAM_ERR(CAM_OIS, "write 0x%04x failed, retry:%d", addr, i+1);
-		} else {
-			return rc;
-		}
-	}
-	return rc;
-}
-
-int cam_sensor_ois_leak(struct cam_sensor_ctrl_t *s_ctrl)
-{
-	int rc = 0;
-	uint16_t tmp_slave_addr = 0x00;
-	struct cam_camera_slave_info *slave_info;
-
-	slave_info = &(s_ctrl->sensordata->slave_info);
-	if (!slave_info) {
-		CAM_ERR(CAM_SENSOR, " failed: %pK",
-			 slave_info);
-		return -EINVAL;
-	}
-
-	tmp_slave_addr = s_ctrl->io_master_info.cci_client->sid;
-	s_ctrl->io_master_info.cci_client->sid = (0x1c >> 1);
-
-	rc = RamWriteByte(s_ctrl, 0x847F, 0x8C0C, 0);
-	rc |= RamWriteByte(s_ctrl, 0x8218, 0x0F00, 0);
-	rc |= RamWriteByte(s_ctrl, 0x821B, 0x0070, 0);
-	rc |= RamWriteByte(s_ctrl, 0x821C, 0x0070, 0);
-	rc |= RamWriteByte(s_ctrl, 0x821B, 0x0071, 1);
-	rc |= RamWriteByte(s_ctrl, 0x821B, 0x0071, 0);
-	if (rc != 0) {
-		CAM_ERR(CAM_OIS, "turn off OIS SPI Error !!!");
-	} else {
-		CAM_ERR(CAM_OIS, "turn off OIS SPI successful !!!");
-	}
-
-	s_ctrl->io_master_info.cci_client->sid = tmp_slave_addr;
-	return rc;
-}
-#endif
 int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	struct cam_sensor_power_ctrl_t *power_info;
@@ -1472,15 +1408,7 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "failed: s_ctrl %pK", s_ctrl);
 		return -EINVAL;
 	}
-#ifdef VENDOR_EDIT
-	/*Add by Fangyan@Cam.Drv@2019/08/31,for ois leak */
-	if (is_project(OPPO_19031) || is_project(OPPO_19331)) {
-		if (strcmp(s_ctrl->device_name,"imx586") ==0) {
-			cam_sensor_ois_leak(s_ctrl);
-		}
 
-	}
-#endif
 	power_info = &s_ctrl->sensordata->power_info;
 	soc_info = &s_ctrl->soc_info;
 

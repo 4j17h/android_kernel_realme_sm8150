@@ -14,3 +14,4 @@ obj-$(CONFIG_QPNP_SMB5)		+= step-chg-jeita.o battery.o pmic-voter.o storm-watch.
 #endif
 obj-$(CONFIG_SMB1390_CHARGE_PUMP)	+= smb1390-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1390_CHARGE_PUMP_PSY)	+= smb1390-charger-psy.o pmic-voter.o
+obj-$(CONFIG_SMB1398_CHARGER)	+= smb1398-charger.o pmic-voter.o

@@ -333,6 +333,16 @@ uint16_t reg_dmn_get_opclass_from_channel(uint8_t *country,
 					  uint8_t channel,
 					  uint8_t offset);
 
+/**
+ * reg_dmn_get_opclass_from_channe() - Print channels in op class.
+ * @country: Country code.
+ * @opclass: opclass.
+ *
+ * Return: Void.
+ */
+void reg_dmn_print_channels_in_opclass(uint8_t *country,
+					uint8_t op_class);
+
 uint16_t reg_dmn_set_curr_opclasses(uint8_t num_classes, uint8_t *class);
 
 uint16_t reg_dmn_get_curr_opclasses(uint8_t *num_classes, uint8_t *class);
@@ -450,6 +460,16 @@ bool reg_is_disable_ch(struct wlan_objmgr_pdev *pdev, uint32_t chan);
 uint32_t reg_freq_to_chan(struct wlan_objmgr_pdev *pdev, uint32_t freq);
 
 uint32_t reg_chan_to_freq(struct wlan_objmgr_pdev *pdev, uint32_t chan_num);
+
+/**
+ * reg_legacy_chan_to_freq() - Get freq from chan noumber, for 2G and 5G
+ * @pdev: Pointer to pdev
+ * @chan_num: Channel number
+ *
+ * Return: Channel frequency if success, otherwise 0
+ */
+uint16_t reg_legacy_chan_to_freq(struct wlan_objmgr_pdev *pdev,
+				 uint8_t chan_num);
 
 /**
  * reg_chan_is_49ghz() - Check if the input channel number is 4.9GHz
